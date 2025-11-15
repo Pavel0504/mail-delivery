@@ -205,20 +205,27 @@ export function MailingsPage() {
         (id) => !newMailing.exclude_contacts.includes(id)
       );
 
-      const recipients = finalContacts.map((contactId) => {
-        const contact = contacts.find((c) => c.id === contactId);
-        const senderEmailId =
-          contact?.default_sender_email_id || emails[0]?.id || null;
+// перед формированием получателей — убедимся, что есть активные отправители
+if (emails.length === 0) {
+  throw new Error('Нет активных отправителей. Добавьте хотя бы одну активную почту.');
+}
 
-        return {
-          mailing_id: mailing.id,
-          contact_id: contactId,
-          sender_email_id: senderEmailId,
-          status: "pending",
-          sent_at: null,
-          error_message: null,
-        };
-      });
+const recipients = finalContacts.map((contactId) => {
+  const contact = contacts.find((c) => c.id === contactId);
+  // если контакт имеет default_sender_email_id — используем его, иначе берем первый активный email
+  const selectedEmailId = contact?.default_sender_email_id || emails[0].id;
+
+  return {
+    mailing_id: mailing.id,
+    contact_id: contactId,
+    // Вставляем в поле, которое реально ожидает БД
+    email_id: selectedEmailId,
+    status: 'pending',
+    sent_at: null,
+    error_message: null,
+  };
+});
+
 
       if (recipients.length > 0) {
         const { data: insertedRecipients } = await supabase
