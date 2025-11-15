@@ -20,7 +20,7 @@ export function EmailsPage() {
     email: '',
     password: '',
   });
-  const [validatingEmail, setValidatingEmail] = useState(false);
+  // Простая клиентская валидация формата email
   const [emailValidation, setEmailValidation] = useState<{
     valid: boolean;
     message: string;
@@ -37,6 +37,8 @@ export function EmailsPage() {
       loadExclusions();
     }
   }, [selectedEmail]);
+
+  const isEmailFormatValid = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const loadEmails = async () => {
     if (!user) return;
@@ -63,38 +65,7 @@ export function EmailsPage() {
       .eq('email_id', selectedEmail.id);
 
     if (data) {
-      setExclusions(data.map(e => e.contact_email));
-    }
-  };
-
-  const validateEmailAPI = async (email: string) => {
-    setValidatingEmail(true);
-    setEmailValidation(null);
-    try {
-      const response = await fetch(
-        `https://rapid-email-verifier.fly.dev/api/validate?email=${encodeURIComponent(email)}`
-      );
-      const data = await response.json();
-
-      if (data.status === 'VALID' && data.validations.mailbox_exists) {
-        setEmailValidation({ valid: true, message: 'Почта валидна и существует' });
-        return true;
-      } else {
-        let message = 'Почта не прошла валидацию';
-        if (!data.validations.syntax) message = 'Неверный формат email';
-        else if (!data.validations.domain_exists) message = 'Домен не существует';
-        else if (!data.validations.mx_records) message = 'Отсутствуют MX записи';
-        else if (!data.validations.mailbox_exists) message = 'Почтовый ящик не существует';
-        else if (data.validations.is_disposable) message = 'Временная/одноразовая почта';
-
-        setEmailValidation({ valid: false, message });
-        return false;
-      }
-    } catch (err) {
-      setEmailValidation({ valid: false, message: 'Ошибка проверки почты' });
-      return false;
-    } finally {
-      setValidatingEmail(false);
+      setExclusions(data.map((e) => e.contact_email));
     }
   };
 
@@ -106,9 +77,10 @@ export function EmailsPage() {
     setError('');
 
     try {
-      const isValid = await validateEmailAPI(newEmail.email);
-      if (!isValid) {
-        throw new Error('Почта не прошла валидацию. Проверьте правильность email адреса.');
+      // Локальная проверка формата
+      if (!isEmailFormatValid(newEmail.email)) {
+        setEmailValidation({ valid: false, message: 'Неверный формат email' });
+        throw new Error('Неверный формат email');
       }
 
       const { error } = await supabase.from('emails').insert({
@@ -224,7 +196,7 @@ export function EmailsPage() {
       .eq('contact_email', email);
 
     if (!error) {
-      setExclusions(exclusions.filter(e => e !== email));
+      setExclusions(exclusions.filter((e) => e !== email));
 
       await supabase.from('activity_logs').insert({
         user_id: user!.id,
@@ -433,20 +405,18 @@ export function EmailsPage() {
                     setEmailValidation(null);
                   }}
                   onBlur={() => {
-                    if (newEmail.email && newEmail.email.includes('@')) {
-                      validateEmailAPI(newEmail.email);
+                    if (newEmail.email) {
+                      if (isEmailFormatValid(newEmail.email)) {
+                        setEmailValidation({ valid: true, message: 'Формат корректен' });
+                      } else {
+                        setEmailValidation({ valid: false, message: 'Неверный формат email' });
+                      }
                     }
                   }}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 dark:text-white"
                   placeholder="example@mail.com"
                   required
                 />
-                {validatingEmail && (
-                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                    Проверка почты...
-                  </p>
-                )}
                 {emailValidation && (
                   <p className={`text-sm mt-1 ${emailValidation.valid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {emailValidation.message}
@@ -483,7 +453,7 @@ export function EmailsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || (emailValidation && !emailValidation.valid)}
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
                 >
                   {loading ? 'Добавление...' : 'Добавить'}
