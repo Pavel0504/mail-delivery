@@ -29,7 +29,7 @@ export function Sidebar({ currentPage, onPageChange, theme, onThemeToggle }: Sid
 
   return (
     <div className={`${collapsed ? 'w-16' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300`}>
-      <div className="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4 flex items-center justify-between border-gray-200 dark:border-gray-700">
         {!collapsed && <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Меню</h2>}
         <button
           onClick={() => setCollapsed(!collapsed)}
